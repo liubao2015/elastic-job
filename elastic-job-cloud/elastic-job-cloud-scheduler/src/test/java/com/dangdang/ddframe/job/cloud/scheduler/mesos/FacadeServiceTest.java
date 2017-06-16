@@ -40,7 +40,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.unitils.util.ReflectionUtils;
 
 import java.util.Arrays;
@@ -82,6 +82,9 @@ public final class FacadeServiceTest {
     @Mock
     private DisableJobService disableJobService;
     
+    @Mock
+    private MesosStateService mesosStateService;
+    
     private FacadeService facadeService;
     
     @Before
@@ -94,6 +97,7 @@ public final class FacadeServiceTest {
         ReflectionUtils.setFieldValue(facadeService, "failoverService", failoverService);
         ReflectionUtils.setFieldValue(facadeService, "disableAppService", disableAppService);
         ReflectionUtils.setFieldValue(facadeService, "disableJobService", disableJobService);
+        ReflectionUtils.setFieldValue(facadeService, "mesosStateService", mesosStateService);
     }
     
     @Test
@@ -266,7 +270,6 @@ public final class FacadeServiceTest {
         facadeService.recordFailoverTask(taskContext);
         verify(failoverService).add(taskContext);
         facadeService.getFailoverTaskId(taskContext.getMetaInfo());
-        when(facadeService.getFailoverTaskId(taskContext.getMetaInfo())).thenReturn(Optional.of(taskNode.getTaskNodePath()));
         verify(failoverService).getTaskId(taskContext.getMetaInfo());
     }
     
@@ -301,15 +304,19 @@ public final class FacadeServiceTest {
     
     @Test
     public void assertEnableJob() {
-        when(jobConfigService.load("test_job")).thenReturn(Optional.of(CloudJobConfigurationBuilder.createCloudJobConfiguration("test_job")));
         facadeService.enableJob("test_job");
         verify(disableJobService).remove("test_job");
     }
     
     @Test
     public void assertDisableJob() {
-        when(jobConfigService.load("test_job")).thenReturn(Optional.of(CloudJobConfigurationBuilder.createCloudJobConfiguration("test_job")));
         facadeService.disableJob("test_job");
         verify(disableJobService).add("test_job");
+    }
+    
+    @Test
+    public void assertLoadExecutor() throws Exception {
+        facadeService.loadExecutorInfo();
+        verify(mesosStateService).executors();
     }
 }

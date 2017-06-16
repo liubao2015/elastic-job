@@ -23,7 +23,7 @@ import com.dangdang.ddframe.job.cloud.scheduler.config.app.CloudAppConfiguration
 import com.dangdang.ddframe.job.cloud.scheduler.config.job.CloudJobConfiguration;
 import com.dangdang.ddframe.job.cloud.scheduler.config.job.CloudJobConfigurationService;
 import com.dangdang.ddframe.job.cloud.scheduler.mesos.MesosStateService;
-import com.dangdang.ddframe.job.cloud.scheduler.mesos.MesosStateService.ExecutorInfo;
+import com.dangdang.ddframe.job.cloud.scheduler.mesos.MesosStateService.ExecutorStateInfo;
 import com.dangdang.ddframe.job.cloud.scheduler.producer.ProducerManager;
 import com.dangdang.ddframe.job.cloud.scheduler.state.disable.app.DisableAppService;
 import com.dangdang.ddframe.job.exception.AppConfigurationException;
@@ -44,7 +44,10 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.util.Collection;
+
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 /**
  * 云作业应用的REST API.
@@ -120,12 +123,12 @@ public final class CloudAppRestfulApi {
     @GET
     @Path("/{appName}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public CloudAppConfiguration detail(@PathParam("appName") final String appName) {
-        Optional<CloudAppConfiguration> config = appConfigService.load(appName);
-        if (config.isPresent()) {
-            return config.get();
+    public Response detail(@PathParam("appName") final String appName) {
+        Optional<CloudAppConfiguration> appConfig = appConfigService.load(appName);
+        if (!appConfig.isPresent()) {
+            return Response.status(NOT_FOUND).build();
         }
-        throw new JobSystemException("Cannot find app '%s', please check the appName.", appName);
+        return Response.ok(appConfig.get()).build();
     }
     
     /**
@@ -142,8 +145,10 @@ public final class CloudAppRestfulApi {
     
     /**
      * 查询应用是否被禁用.
-     *
+     * 
      * @param appName 应用名称
+     * @return 应用是否被禁用
+     * @throws JSONException JSON解析异常
      */
     @GET
     @Path("/{appName}/disable")
@@ -172,8 +177,9 @@ public final class CloudAppRestfulApi {
     
     /**
      * 启用应用.
-     *
+     * 
      * @param appName 应用名称
+     * @throws JSONException JSON解析异常
      */
     @DELETE
     @Path("/{appName}/disable")
@@ -204,13 +210,14 @@ public final class CloudAppRestfulApi {
                 producerManager.deregister(each.getJobName());
             }
         }
+        disableAppService.remove(appName);
         appConfigService.remove(appName);
     }
     
     private void stopExecutors(final String appName) {
         try {
-            Collection<ExecutorInfo> executorBriefInfo = mesosStateService.executors(appName);
-            for (ExecutorInfo each : executorBriefInfo) {
+            Collection<ExecutorStateInfo> executorBriefInfo = mesosStateService.executors(appName);
+            for (ExecutorStateInfo each : executorBriefInfo) {
                 producerManager.sendFrameworkMessage(ExecutorID.newBuilder().setValue(each.getId()).build(),
                         SlaveID.newBuilder().setValue(each.getSlaveId()).build(), "STOP".getBytes());
             }

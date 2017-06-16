@@ -33,26 +33,18 @@ import com.dangdang.ddframe.job.exception.JobConfigurationException;
 import com.dangdang.ddframe.job.reg.base.CoordinatorRegistryCenter;
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.apache.mesos.Protos;
 import org.apache.mesos.SchedulerDriver;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.unitils.util.ReflectionUtils;
 
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -92,8 +84,7 @@ public final class ProducerManagerTest {
     
     private final CloudJobConfiguration daemonJobConfig = CloudJobConfigurationBuilder.createCloudJobConfiguration("daemon_test_job", CloudJobExecutionType.DAEMON);
     
-    @Captor
-    private ArgumentCaptor<Collection<Protos.TaskStatus>> taskStatusCaptor;
+    
     
     @Before
     public void setUp() throws NoSuchFieldException {
@@ -119,7 +110,6 @@ public final class ProducerManagerTest {
     @Test(expected = AppConfigurationException.class)
     public void assertRegisterJobWithoutApp() {
         when(appConfigService.load("test_app")).thenReturn(Optional.<CloudAppConfiguration>absent());
-        when(configService.load("transient_test_job")).thenReturn(Optional.of(transientJobConfig));
         producerManager.register(transientJobConfig);
     }
     
@@ -192,6 +182,7 @@ public final class ProducerManagerTest {
         for (TaskContext each : taskContexts) {
             verify(schedulerDriver).killTask(Protos.TaskID.newBuilder().setValue(each.getId()).build());
         }
+        verify(disableJobService).remove("transient_test_job");
         verify(configService).remove("transient_test_job");
         verify(runningService).remove("transient_test_job");
         verify(readyService).remove(Lists.newArrayList("transient_test_job"));
@@ -201,31 +192,5 @@ public final class ProducerManagerTest {
     public void assertShutdown() {
         producerManager.shutdown();
         verify(transientProducerScheduler).shutdown();
-    }
-    
-    @Test
-    public void assertImplicitReconcile() {
-        when(runningService.getAllRunningDaemonTasks()).thenReturn(Collections.<TaskContext>emptySet());
-        producerManager.implicitReconcile();
-        verify(schedulerDriver).reconcileTasks(Collections.<Protos.TaskStatus>emptyList());
-    }
-    
-    @Test
-    public void assertExplicitReconcile() {
-        Set<TaskContext> assertRunningTasks = Sets.newHashSet(
-                TaskContext.from("transient_test_job@-@0@-@READY@-@SLAVE-S0@-@UUID"), TaskContext.from("transient_test_job@-@1@-@READY@-@SLAVE-S0@-@UUID"));
-        when(runningService.getAllRunningDaemonTasks()).thenReturn(assertRunningTasks);
-        producerManager.explicitReconcile();
-        verify(schedulerDriver).reconcileTasks(taskStatusCaptor.capture());
-        assertThat(taskStatusCaptor.getValue().size(), is(2));
-    }
-    
-    @Test
-    public void assertExplicitReconcileForTask() {
-        when(runningService.getRunningTasks("transient_test_job")).thenReturn(Sets.newHashSet(TaskContext.from("transient_test_job@-@0@-@READY@-@SLAVE-S0@-@UUID")));
-        producerManager.explicitReconcile("transient_test_job@-@0@-@READY@-@SLAVE-S0@-@UUID");
-        verify(schedulerDriver).reconcileTasks(taskStatusCaptor.capture());
-        assertThat(taskStatusCaptor.getValue().size(), is(1));
-        assertThat(taskStatusCaptor.getValue().iterator().next().getTaskId().getValue(), is("transient_test_job@-@0@-@READY@-@SLAVE-S0@-@UUID"));
     }
 }

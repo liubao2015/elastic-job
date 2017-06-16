@@ -111,12 +111,12 @@ public class MesosStateService {
      * @return 执行器信息
      * @throws JSONException 解析JSON格式异常
      */
-    public Collection<ExecutorInfo> executors(final String appName) throws JSONException {
-        return Collections2.transform(findExecutors(fetch(stateUrl).getJSONArray("frameworks"), appName), new Function<JSONObject, ExecutorInfo>() {
+    public Collection<ExecutorStateInfo> executors(final String appName) throws JSONException {
+        return Collections2.transform(findExecutors(fetch(stateUrl).getJSONArray("frameworks"), appName), new Function<JSONObject, ExecutorStateInfo>() {
             @Override
-            public ExecutorInfo apply(final JSONObject input) {
+            public ExecutorStateInfo apply(final JSONObject input) {
                 try {
-                    return ExecutorInfo.builder().id(getExecutorId(input)).slaveId(input.getString("slave_id")).build();
+                    return ExecutorStateInfo.builder().id(getExecutorId(input)).slaveId(input.getString("slave_id")).build();
                 } catch (final JSONException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -130,7 +130,7 @@ public class MesosStateService {
      * @return 执行器信息
      * @throws JSONException 解析JSON格式异常
      */
-    public Collection<ExecutorInfo> executors() throws JSONException {
+    public Collection<ExecutorStateInfo> executors() throws JSONException {
         return executors(null);
     }
     
@@ -170,7 +170,7 @@ public class MesosStateService {
     
     @Builder
     @Getter
-    public static final class ExecutorInfo {
+    public static final class ExecutorStateInfo {
         
         private final String id;
         
